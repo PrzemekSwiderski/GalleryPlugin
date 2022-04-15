@@ -2,6 +2,7 @@ package gallery;
 
 import gallery.listeners.ChatListener;
 import gallery.listeners.ItemFrameListener;
+import gallery.listeners.Protector;
 import gallery.managers.ConfigManager;
 import gallery.managers.PlayerDao;
 import gallery.util.Utility;
@@ -14,6 +15,7 @@ public final class Gallery extends JavaPlugin {
     private ConfigManager configManager;
     private PlayerDao playerDao;
     private ChatListener chatListener;
+    private Protector protector;
     private Utility utility;
 
     @Override
@@ -22,11 +24,12 @@ public final class Gallery extends JavaPlugin {
         configManager = new ConfigManager();
         playerDao = new PlayerDao();
         chatListener = new ChatListener();
+        protector = new Protector();
         utility = new Utility();
         getCommand("galeria").setExecutor(chatListener);
         getCommand("wyspa").setExecutor(chatListener);
 
-
+        getServer().getPluginManager().registerEvents(new Protector(), this );
         getServer().getPluginManager().registerEvents(new ItemFrameListener(this), this);
         getLogger().severe("Galeria uruchomiona.");
     }
@@ -38,7 +41,5 @@ public final class Gallery extends JavaPlugin {
     public static Gallery getInstance() {
         return instance;
     }
-    //todo komendy i permisje
-    //todo blokada wyrzucania przedmiotow, zbierania itemow budowania i niszczenia
 }
 
