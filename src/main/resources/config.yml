@@ -1,0 +1,16 @@
+mysql:
+  host: '51.75.72.106'
+  user: 'B'
+  password: 'haslo'
+  database: 'dostep'
+  port: 3306
+
+galleryWorld: survival_galeria
+
+prefix: "&7[&cBrodaci&7]"
+
+permission: galeria11
+limits:
+  - 96
+  - 192
+  - 288

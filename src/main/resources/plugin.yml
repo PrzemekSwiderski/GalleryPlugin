@@ -1,0 +1,10 @@
+name: Galeria
+version: '${project.version}'
+main: gallery.Gallery
+api-version: 1.18
+depend: [ IslandWorld, LuckPerms ]
+authors: [ CrySis ]
+
+commands:
+  galeria:
+  wyspa:
