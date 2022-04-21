@@ -7,6 +7,7 @@ import lombok.Getter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,43 +19,53 @@ import java.util.Objects;
 
 import static pl.islandworld.api.IslandWorldApi.canBuildOnLocation;
 
-@AllArgsConstructor
+
 @Getter
 public class ItemFrameListener implements Listener {
     public final int ZERO = 0;
 
-    private Gallery plugin;
+    private final Gallery plugin;
+
+    public ItemFrameListener() {
+        plugin = Gallery.getInstance();
+    }
 
     @EventHandler
     public void onItemFramePlace(HangingPlaceEvent event) {
         Player player = Objects.requireNonNull(event.getPlayer());
 
-        if (isGalleryWorld(player) && isOwner(player)) {
-            List<Integer> limits = plugin.getConfigManager().getLimits();
+        if (!isGalleryWorld(player) || !isOwner(player)) {
+            return;
+        }
+        if (!(event.getEntity() instanceof ItemFrame)){
+            return;
+        }
 
-            for (Integer limit : limits) {
-                if (plugin.getUtility().whichLimitPlayerHas(player, limits.size() - limits.indexOf(limit))) {
-                    if (isLimitReach(player, limit)) {
-                        if (plugin.getPlayerDao().updatePlayerLimit(player, "+ 1")) {
-                            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
-                                    + ": Poprawnie postawiono ramkę."));
-                        } else {
-                            event.setCancelled(true);
-                            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
-                                    + ": &cBłąd podczas stawiania ramki. Zgłoś to administratorowi!"));
-                        }
+        List<Integer> limits = plugin.getConfigManager().getLimits();
+
+        for (Integer limit : limits) {
+            if (plugin.getUtility().whichLimitPlayerHas(player, limits.size() - limits.indexOf(limit))) {
+                if (isLimitReach(player, limit)) {
+                    if (plugin.getPlayerDao().updatePlayerLimit(player, "+ 1")) {
+                        player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
+                                + ": Poprawnie postawiono ramkę."));
                     } else {
                         event.setCancelled(true);
                         player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
-                                + ": Limit ramek został osiągnięty."));
+                                + ": &cBłąd podczas stawiania ramki. Zgłoś to administratorowi!"));
                     }
-                    return;
+                } else {
+                    event.setCancelled(true);
+                    player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
+                            + ": Limit ramek został osiągnięty."));
                 }
+                return;
             }
-            event.setCancelled(true);
-            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
-                    + ": Brak permisji by postawić ramkę."));
         }
+        event.setCancelled(true);
+        player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
+                + ": Brak permisji by postawić ramkę."));
+
     }
 
 

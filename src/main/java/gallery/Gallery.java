@@ -18,6 +18,7 @@ public final class Gallery extends JavaPlugin {
     private Protector protector;
     private Utility utility;
 
+
     @Override
     public void onEnable() {
         instance = this;
@@ -26,11 +27,12 @@ public final class Gallery extends JavaPlugin {
         chatListener = new ChatListener();
         protector = new Protector();
         utility = new Utility();
+
         getCommand("galeria").setExecutor(chatListener);
         getCommand("wyspa").setExecutor(chatListener);
 
         getServer().getPluginManager().registerEvents(new Protector(), this );
-        getServer().getPluginManager().registerEvents(new ItemFrameListener(this), this);
+        getServer().getPluginManager().registerEvents(new ItemFrameListener(), this);
         getLogger().severe("Galeria uruchomiona.");
     }
 

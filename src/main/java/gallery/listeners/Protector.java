@@ -13,7 +13,7 @@ import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 
 public class Protector implements Listener {
-    private Gallery plugin;
+    private final Gallery plugin;
 
     public Protector() {
         this.plugin = Gallery.getInstance();
@@ -39,8 +39,6 @@ public class Protector implements Listener {
         if (!plugin.getConfigManager().getWorld().equals(event.getPlayer().getWorld().getName())) {
             return;
         }
-
-        event.getPlayer().sendMessage("Rzuciles item");
 
         event.setCancelled(true);
     }

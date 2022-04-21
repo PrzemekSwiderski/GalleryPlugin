@@ -10,8 +10,8 @@ import java.util.stream.Collectors;
 
 @Getter
 public class ConfigManager {
-    private Gallery plugin;
-    private FileConfiguration config;
+    private final Gallery plugin;
+    private final FileConfiguration config;
 
     private String host;
     private String user;

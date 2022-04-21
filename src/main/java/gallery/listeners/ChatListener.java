@@ -1,10 +1,5 @@
 package gallery.listeners;
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.entity.Entity;
-import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.regions.CuboidRegion;
-import com.sk89q.worldedit.world.World;
 import gallery.Gallery;
 import gallery.util.Color;
 import lombok.SneakyThrows;
@@ -14,11 +9,6 @@ import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.model.user.User;
-import net.luckperms.api.node.Node;
-import net.luckperms.api.node.NodeEqualityPredicate;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -28,7 +18,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import pl.islandworld.Config;
-import pl.islandworld.IslandWorld;
 import pl.islandworld.entity.SimpleIsland;
 
 import java.io.IOException;
@@ -37,16 +26,21 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import static pl.islandworld.api.IslandWorldApi.*;
 
 public class ChatListener implements CommandExecutor {
 
-    private Gallery plugin;
+    private final Gallery plugin;
+    private final GalleryChanger galleryChanger;
+    private final FrameCalculator frameCalculator;
 
     public ChatListener() {
-        this.plugin = Gallery.getInstance();
+        plugin = Gallery.getInstance();
+        galleryChanger = new GalleryChanger();
+        frameCalculator = new FrameCalculator();
     }
 
     @SneakyThrows
@@ -82,7 +76,7 @@ public class ChatListener implements CommandExecutor {
                                     ": Poprawne użycie to &f/galeria limit <player>"));
                             return false;
                         }
-                        if (!plugin.getPlayerDao().checkIfPlayerExist(args[1])) {
+                        if (plugin.getPlayerDao().checkIfPlayerExist(args[1])) {
                             player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
                                     ": W bazie danych nie ma podanego gracza."));
                             return false;
@@ -121,10 +115,10 @@ public class ChatListener implements CommandExecutor {
                         return createGallery(player);
                     case "calculate":
                         if (args.length == 2 && hasGalleryPermission(player, ".admin")) {
-                            loadChunks(args[1]);
+                            frameCalculator.loadChunks(args[1]);
 
                             plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
-                                calculatePlayerFrames(args[1], player);
+                                frameCalculator.calculatePlayerFrames(args[1], player);
                                 player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
                                         + ": Gracz &f" + args[1]
                                         + "&7 posiada &f" + plugin.getPlayerDao().getLimit(args[1])
@@ -141,7 +135,7 @@ public class ChatListener implements CommandExecutor {
                         return false;
                     case "calculateall":
                         if (hasGalleryPermission(player, ".admin")) {
-                            calculateAllFrames(player);
+                            frameCalculator.calculateAllFrames(player);
                             return true;
                         }
                         getCommandGalleryHelpForPlayer(player);
@@ -174,127 +168,21 @@ public class ChatListener implements CommandExecutor {
                     getCommandGalleryHelpForPlayer(player);
                     return false;
                 }
-                if (args.length != 2) {
+                if (args.length != 2 && args.length != 3) {
                     player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
-                            ": Poprawne użycie komendy: &f/wyspa <staryNick> <nowyNick>"));
+                            ": Poprawne użycie komendy: &f/wyspa <staryNick> <nowyNick> [optional -f]"));
                     return false;
                 }
-                LuckPerms lpApi = LuckPermsProvider.get();
-                UUID uuidNewPlayer = lpApi.getUserManager().lookupUniqueId(args[1]).get();
-                Player oldPlayer = plugin.getServer().getPlayer(args[0]);
-
-                if (uuidNewPlayer == null) {
-                    player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
-                            ": Gracz: &f" + args[1] + " &7 nie istnieje."));
-                    return false;
-                }
-                if (oldPlayer == null) {
-                    player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
-                            ": Gracz: &f" + args[0] + " &7 nie jest online."));
-                    return false;
-                }
-                if (!haveIsland(oldPlayer.getName())) {
-                    player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
-                            ": Gracz: &f" + args[0] + " &7 nie posiada galerii."));
-                    return false;
-                }
-                if (haveIsland(args[1])) {
-                    player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
-                            ": Gracz: &f" + args[1] + " &7 posiada już galerię."));
-                    return false;
-                }
-
-                List<Integer> limits = plugin.getConfigManager().getLimits();
-                for (Integer limit : limits) {
-                    int level = limits.size() - limits.indexOf(limit);
-                    if (plugin.getUtility().whichLimitPlayerHas(oldPlayer, level)) {
-                        if (changeGallery(player, oldPlayer, args[1], level, lpApi)) {
-                            return true;
-                        } else {
-                            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() + ": Błąd podczas przenoszenia galerii."));
-                            return false;
-                        }
+                if (args.length == 3) {
+                    if ("-f".equals(args[2])) {
+                        return galleryChanger.changeForced(args, player);
                     }
                 }
-                player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
-                        ": Gracz: &f" + args[0] + " &7 nie posiada permisji!"));
-                return false;
+                return galleryChanger.change(args, player);
+
             default:
                 return false;
         }
-    }
-
-    private boolean changeGallery(Player player, Player oldPlayer, String newPlayer, int level, LuckPerms lpApi) {
-        if (!changeOwner(oldPlayer, newPlayer, lpApi)) {
-            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() + ": Błąd związany z zmianą właściciela."));
-            return false;
-        }
-        if (!changePermission(oldPlayer, newPlayer, level, lpApi)) {
-            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() + ": Błąd związany z permisjami."));
-
-            return false;
-        }
-        if (!changeFrames(oldPlayer, newPlayer)) {
-            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() + ": Błąd związany z ramkami."));
-            return false;
-        }
-        player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() + ": Poprawnie przeniesiono galerię z &f" + oldPlayer.getName() + " &7do&f " + newPlayer));
-        return true;
-    }
-
-    private boolean changeFrames(Player oldPlayer, String newPlayer) {
-        int oldPlayerFrames = plugin.getPlayerDao().getLimit(oldPlayer.getName());
-        plugin.getPlayerDao().setPlayerLimit(newPlayer, oldPlayerFrames);
-        plugin.getPlayerDao().setPlayerLimit(oldPlayer.getName(), 0);
-        return plugin.getPlayerDao().getLimit(newPlayer) == oldPlayerFrames
-                && plugin.getPlayerDao().getLimit(oldPlayer.getName()) == 0;
-    }
-
-    @SneakyThrows
-    private boolean changeOwner(Player oldPlayer, String newPlayer, LuckPerms lpApi) {
-        SimpleIsland island = getIsland(oldPlayer.getUniqueId());
-        IslandWorld is = IslandWorld.getInstance();
-        if (is.getIsleList().remove(Objects.requireNonNull(oldPlayer.getName()).toLowerCase()) == null) {
-            return false;
-        }
-        UUID oldUuid = island.getOwnerUUID();
-        UUID newUuid = lpApi.getUserManager().lookupUniqueId(newPlayer).get();
-        if (Config.TRACK_UUID && oldUuid != null && is.getUUIDList().containsKey(oldUuid)) {
-            is.getUUIDList().remove(oldUuid);
-            is.getUUIDList().put(newUuid, island);
-        }
-        island.setOwnerUUID(newUuid);
-        island.setOwner(newPlayer);
-        is.getIsleList().put(newPlayer.toLowerCase(), island);
-        is.saveDatFiles();
-        is.removePoints(oldPlayer.getName());
-        return haveIsland(newPlayer) && !haveIsland(oldPlayer.getName());
-    }
-
-
-    @SneakyThrows
-    private boolean changePermission(Player oldPlayer, String newPlayer, int level, LuckPerms lpApi) {
-        User oldUser = lpApi.getUserManager().getUser(oldPlayer.getUniqueId());
-        UUID uuidNewUser = lpApi.getUserManager().lookupUniqueId(newPlayer).get();
-        User newUser = lpApi.getUserManager().loadUser(uuidNewUser).get();
-        Objects.requireNonNull(oldUser).data()
-                .remove(Node.builder("group." + plugin.getConfigManager().getPermission()).build());
-        newUser.data().add(Node.builder("group." + plugin.getConfigManager().getPermission()).build());
-        if (level != 1) {
-            Objects.requireNonNull(oldUser).data()
-                    .remove(Node.builder(plugin.getConfigManager().getPermission() + "." + level).build());
-            newUser.data().add(Node.builder(plugin.getConfigManager().getPermission() + "." + level).build());
-        }
-
-        lpApi.getUserManager().saveUser(oldUser);
-        lpApi.getUserManager().saveUser(newUser);
-
-        return !Objects.requireNonNull(lpApi.getUserManager().getUser(oldPlayer.getUniqueId())).data().
-                contains(Node.builder("group." + plugin.getConfigManager().getPermission()).build(), NodeEqualityPredicate.EXACT)
-                .asBoolean()
-                && lpApi.getUserManager().loadUser(lpApi.getUserManager().lookupUniqueId(newPlayer).get()).get().data()
-                .contains(Node.builder("group." + plugin.getConfigManager().getPermission()).build(), NodeEqualityPredicate.EXACT)
-                .asBoolean();
     }
 
     private void getCommandGalleryHelpForAdmin(Player player) {
@@ -345,13 +233,15 @@ public class ChatListener implements CommandExecutor {
                     + ": Posiadasz już własną galerię"));
             return false;
         }
-        if (getCreateLimit(player.getName()) < Config.CREATE_LIMIT) {
+        if (getCreateLimit(player.getName().toLowerCase()) >= Config.CREATE_LIMIT) {
             player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
                     + ": Nie możesz ponownie stworzyć galerii."));
             return false;
         }
         createIsland(player.getName(), null, null);
-        plugin.getPlayerDao().insertPlayer(player.getName());
+        if (plugin.getPlayerDao().checkIfPlayerExist(player.getName())) {
+            plugin.getPlayerDao().insertPlayer(player.getName());
+        }
         return true;
     }
 
@@ -382,135 +272,6 @@ public class ChatListener implements CommandExecutor {
         Audience.audience(player).showTitle(title);
 
         return true;
-    }
-
-    private void calculateAllFrames(Player player) {
-        List<String> owners = getListOfAllGalleriesOwners();
-
-        int count = 1;
-        for (String owner : owners) {
-            plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
-                loadChunks(owner);
-                plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () ->
-                        calculatePlayerFrames(owner, player), 20L);
-            }, 20L * count++);
-        }
-
-        plugin.getServer().getScheduler()
-                .scheduleSyncDelayedTask(plugin, () -> player.sendMessage(Color.color("&6&lProces zakończony")), 20L * (count + 1));
-
-    }
-
-
-    private void calculatePlayerFrames(String player, Player commander) {
-        int[] array = getIslandRealCoords(player, false);
-        Location loc = new Location(getIslandWorld(), array[0] + 22, 64, array[1] + 22);
-        if (loc.getChunk().isEntitiesLoaded()) {
-            commander.sendMessage(Color.color("&2&lZaładowano"));
-        } else {
-            commander.sendMessage(Color.color("&4&lNie załadowano"));
-        }
-
-        World world = BukkitAdapter.adapt(getIslandWorld());
-        CuboidRegion gallery = new CuboidRegion(BlockVector3.at(array[0], 60, array[1]), BlockVector3.at(array[0] + 49, 120, array[1] + 49));
-        gallery.setWorld(world);
-
-        List<Entity> entities = new ArrayList<>(world.getEntities(gallery));
-        String itemFrame = "minecraft:item_frame";
-        String glowItemFrame = "minecraft:glow_item_frame";
-
-        int count = 0;
-        for (Entity ent : entities) {
-            if (itemFrame.equalsIgnoreCase(Objects.requireNonNull(ent.getState()).getType().getName())
-                    || glowItemFrame.equalsIgnoreCase(Objects.requireNonNull(ent.getState()).getType().getName())) {
-                count++;
-            } else {
-                ent.remove();
-            }
-        }
-        plugin.getPlayerDao().setPlayerLimit(player, count);
-
-        if (count < entities.size()) {
-            printPlayersWithSomeEntities(player, count, entities.size());
-        }
-    }
-
-
-    private void loadChunks(String player) {
-        int[] array = getIslandRealCoords(player, false);
-
-        List<Location> chunks = Arrays.asList(new Location(getIslandWorld(), array[0], 64, array[1]),
-                new Location(getIslandWorld(), array[0] + 16, 64, array[1]),
-                new Location(getIslandWorld(), array[0] + 32, 64, array[1]),
-                new Location(getIslandWorld(), array[0] + 48, 64, array[1]),
-                new Location(getIslandWorld(), array[0], 64, array[1] + 16),
-                new Location(getIslandWorld(), array[0] + 16, 64, array[1] + 16),
-                new Location(getIslandWorld(), array[0] + 32, 64, array[1] + 16),
-                new Location(getIslandWorld(), array[0] + 48, 64, array[1] + 16),
-                new Location(getIslandWorld(), array[0], 64, array[1] + 32),
-                new Location(getIslandWorld(), array[0] + 16, 64, array[1] + 32),
-                new Location(getIslandWorld(), array[0] + 32, 64, array[1] + 32),
-                new Location(getIslandWorld(), array[0] + 48, 64, array[1] + 32),
-                new Location(getIslandWorld(), array[0], 64, array[1] + 48),
-                new Location(getIslandWorld(), array[0] + 16, 64, array[1] + 48),
-                new Location(getIslandWorld(), array[0] + 32, 64, array[1] + 48),
-                new Location(getIslandWorld(), array[0] + 48, 64, array[1] + 48)
-        );
-
-        chunks.forEach(chunk -> chunk.getChunk().load());
-    }
-
-
-    private void printPlayersWithSomeEntities(String player, int frames, int entities) {
-        Path path = Paths.get("./plugins/Galeria/logi/playersWithmoreEntitiesThanFrames.yml");
-        if (!Files.isDirectory(path)) {
-            try {
-                Files.createDirectories(Paths.get("./plugins/Galeria/logi/"));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        if (!Files.exists(path)) {
-            try {
-                Files.createFile(path);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-
-        try {
-            Files.write(path, (player + " ilość ramek - " + frames + " ilość entity - " + entities + "\n").getBytes(), StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    private List<String> getListOfAllGalleriesOwners() {
-        double x = 24.5;
-        double z;
-        Location location;
-        Block block;
-        SimpleIsland island;
-        List<String> owners = new ArrayList<>();
-
-        while (x < 500.0) {
-            z = 24.5;
-            while (z < 5000.0) {
-                location = new Location(getIslandWorld(), x, 66.0, z);
-                block = location.getBlock();
-                if (block.getType().equals(Material.CYAN_TERRACOTTA)) {
-                    island = getIsland(location);
-                    owners.add(island.getOwner().toLowerCase());
-                }
-                z += 49;
-            }
-            x += 49;
-        }
-
-        return owners;
     }
 
     private boolean checkWhichIslandDontHaveOwner(Path path) {

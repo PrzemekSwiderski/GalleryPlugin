@@ -1,15 +1,17 @@
 package gallery.managers;
 
 import gallery.Gallery;
+import lombok.Getter;
 import org.bukkit.entity.Player;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+@Getter
 public class PlayerDao {
     private final String PLAYERS = "players";
 
-    private Gallery plugin;
+    private final Gallery plugin;
     private MySQLManager mysql;
 
     public PlayerDao() {
@@ -54,8 +56,8 @@ public class PlayerDao {
     }
 
     public boolean setPlayerLimit(String player, int modify) {
-        String query = null;
-        if (!checkIfPlayerExist(player)) {
+        String query;
+        if (checkIfPlayerExist(player)) {
             query = String.format("INSERT INTO players (`name`, `frames`) VALUES('%s', %s)", player, modify);
         } else {
             query = String.format("UPDATE players SET frames = %s Where name = '%s'", modify, player);
@@ -68,23 +70,14 @@ public class PlayerDao {
         mysql.insert(query);
     }
 
-    public void insertPlayer(String player, int frames) {
-        String query = String.format("INSERT INTO players (`name`, `frames`) VALUES('%s', %s)", player, frames);
-        mysql.insert(query);
-    }
-
     public boolean checkIfPlayerExist(String player) {
         String query = String.format("SELECT * from players WHERE name = '%s'", player);
         ResultSet resultSet = mysql.select(query);
         try {
-            if (resultSet.next()) {
-                return true;
-            } else {
-                return false;
-            }
+            return !resultSet.next();
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
+            return true;
         }
     }
 

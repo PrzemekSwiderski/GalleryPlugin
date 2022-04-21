@@ -32,7 +32,7 @@ public class MySQLManager {
                             + host + ":"
                             + port + "/"
                             + database
-                            + "?useUnicode=true&characterEncoding=utf-8&autoReconnect=true",
+                            + "?autoReconnect=true&useUnicode=true&characterEncoding=utf-8",
                     user, password);
         } catch (ClassNotFoundException e) {
             log.severe("ClassNotFoundException! " + e.getMessage());
@@ -56,15 +56,7 @@ public class MySQLManager {
         return getConnection() != null;
     }
 
-    public void close() {
-        try {
-            if (connection != null) {
-                connection.close();
-            }
-        } catch (Exception e) {
-            this.log.severe("Failed to close database connection! " + e.getMessage());
-        }
-    }
+
 
     public ResultSet select(String query) {
         try {
@@ -99,16 +91,6 @@ public class MySQLManager {
         }
     }
 
-    public void delete(String query) {
-        try (Statement statement = getConnection().createStatement()) {
-            statement.executeUpdate(query);
-        } catch (SQLException e) {
-            if (!e.toString().contains("not return ResultSet")) {
-                log.severe("Error at SQL DELETE Query: " + e);
-            }
-        }
-    }
-
     public void execute(String query) {
         try (Statement statement = getConnection().createStatement()) {
             statement.execute(query);
@@ -120,7 +102,7 @@ public class MySQLManager {
 
     public Boolean existsTable(String table) {
         try {
-            ResultSet tables = getConnection().getMetaData().getTables(null, null, table, null);
+            ResultSet tables = getConnection().getMetaData().getTables(database, null, table, new String[] {"TABLE"});
             return tables.next();
         } catch (SQLException e) {
             log.severe("Failed to check if table " + table + " exists: " + e.getMessage());
