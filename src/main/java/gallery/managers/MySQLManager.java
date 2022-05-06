@@ -103,7 +103,9 @@ public class MySQLManager {
     public Boolean existsTable(String table) {
         try {
             ResultSet tables = getConnection().getMetaData().getTables(database, null, table, new String[] {"TABLE"});
-            return tables.next();
+            boolean exists = tables.next();
+            getConnection().close();
+            return exists;
         } catch (SQLException e) {
             log.severe("Failed to check if table " + table + " exists: " + e.getMessage());
             return false;

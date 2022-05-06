@@ -28,6 +28,8 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static pl.islandworld.api.IslandWorldApi.*;
 
@@ -114,25 +116,31 @@ public class ChatListener implements CommandExecutor {
                     case "stworz":
                         return createGallery(player);
                     case "calculate":
-                        if (args.length == 2 && hasGalleryPermission(player, ".admin")) {
-                            frameCalculator.loadChunks(args[1]);
-
-                            plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
-                                frameCalculator.calculatePlayerFrames(args[1], player);
-                                player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
-                                        + ": Gracz &f" + args[1]
-                                        + "&7 posiada &f" + plugin.getPlayerDao().getLimit(args[1])
-                                        + " ramek w swojej galerii."));
-                            }, 20L);
-
-                            return true;
-                        } else if (hasGalleryPermission(player, ".admin")) {
+                        if (!hasGalleryPermission(player, ".admin")) {
+                            getCommandGalleryHelpForPlayer(player);
+                            return false;
+                        }
+                        if (args.length != 2) {
                             player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
                                     ": Poprawne użycie to &f/galeria calculate <player>"));
-                        } else {
-                            getCommandGalleryHelpForPlayer(player);
+                            return false;
                         }
-                        return false;
+                        if (!haveIsland(args[1])) {
+                            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
+                                    ": Gracz &f" + args[1] + " &7nie posiada galerii."));
+                            return false;
+                        }
+                        frameCalculator.loadChunks(args[1]);
+
+                        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
+                            frameCalculator.calculatePlayerFrames(args[1], player);
+                            player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
+                                    + ": Gracz &f" + args[1]
+                                    + "&7 posiada &f" + plugin.getPlayerDao().getLimit(args[1])
+                                    + " ramek w swojej galerii."));
+                        }, 20L);
+
+                        return true;
                     case "calculateall":
                         if (hasGalleryPermission(player, ".admin")) {
                             frameCalculator.calculateAllFrames(player);

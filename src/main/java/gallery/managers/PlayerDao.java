@@ -2,10 +2,12 @@ package gallery.managers;
 
 import gallery.Gallery;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import org.bukkit.entity.Player;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 @Getter
 public class PlayerDao {
@@ -19,6 +21,7 @@ public class PlayerDao {
         initiateDB();
     }
 
+    @SneakyThrows
     private void initiateDB() {
         mysql = new MySQLManager(plugin.getConfigManager().getHost(),
                 plugin.getConfigManager().getPort(),
@@ -35,6 +38,7 @@ public class PlayerDao {
         } else {
             plugin.getLogger().warning("Cannot initiate database - connection error");
         }
+        mysql.getConnection().close();
     }
 
     public int getLimit(String player) {
@@ -42,7 +46,9 @@ public class PlayerDao {
             String query = String.format("SELECT frames FROM players WHERE name = '%s'", player);
             ResultSet resultSet = mysql.select(query);
             resultSet.next();
-            return resultSet.getInt("frames");
+            int frames = resultSet.getInt("frames");
+            mysql.getConnection().close();
+            return frames;
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -71,9 +77,9 @@ public class PlayerDao {
     }
 
     public boolean checkIfPlayerExist(String player) {
-        String query = String.format("SELECT * from players WHERE name = '%s'", player);
-        ResultSet resultSet = mysql.select(query);
-        try {
+        try(Statement statement = mysql.getConnection().createStatement()) {
+            String query = String.format("SELECT * from players WHERE name = '%s'", player);
+            ResultSet resultSet = statement.executeQuery(query);
             return !resultSet.next();
         } catch (SQLException e) {
             e.printStackTrace();

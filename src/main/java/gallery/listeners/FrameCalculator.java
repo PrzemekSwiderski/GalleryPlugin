@@ -46,6 +46,7 @@ public class FrameCalculator {
 
     public void calculatePlayerFrames(String player, Player commander) {
         int[] array = getIslandRealCoords(player, false);
+
         Location loc = new Location(getIslandWorld(), array[0] + 22, 64, array[1] + 22);
         if (!loc.getChunk().isEntitiesLoaded()) {
             commander.sendMessage(Color.color("&4&lNie załadowano galerii " + player));
@@ -111,7 +112,9 @@ public class FrameCalculator {
                 block = location.getBlock();
                 if (block.getType().equals(Material.CYAN_TERRACOTTA)) {
                     island = getIsland(location);
-                    owners.add(island.getOwner().toLowerCase());
+                    if (island != null) {
+                        owners.add(island.getOwner().toLowerCase());
+                    }
                 }
                 z += 49;
             }

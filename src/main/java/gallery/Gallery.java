@@ -9,6 +9,8 @@ import gallery.util.Utility;
 import lombok.Getter;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.sql.SQLException;
+
 @Getter
 public final class Gallery extends JavaPlugin {
     private static Gallery instance;
