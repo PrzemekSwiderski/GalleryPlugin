@@ -4,18 +4,16 @@ import gallery.listeners.ChatListener;
 import gallery.listeners.ItemFrameListener;
 import gallery.listeners.Protector;
 import gallery.managers.ConfigManager;
-import gallery.managers.PlayerDao;
+import gallery.managers.MySQLManager;
 import gallery.util.Utility;
 import lombok.Getter;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.sql.SQLException;
 
 @Getter
 public final class Gallery extends JavaPlugin {
     private static Gallery instance;
     private ConfigManager configManager;
-    private PlayerDao playerDao;
+    private MySQLManager playerDao;
     private ChatListener chatListener;
     private Protector protector;
     private Utility utility;
@@ -25,7 +23,7 @@ public final class Gallery extends JavaPlugin {
     public void onEnable() {
         instance = this;
         configManager = new ConfigManager();
-        playerDao = new PlayerDao();
+        playerDao = new MySQLManager();
         chatListener = new ChatListener();
         protector = new Protector();
         utility = new Utility();

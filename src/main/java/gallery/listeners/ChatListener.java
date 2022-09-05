@@ -28,8 +28,6 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static pl.islandworld.api.IslandWorldApi.*;
 
@@ -78,7 +76,7 @@ public class ChatListener implements CommandExecutor {
                                     ": Poprawne użycie to &f/galeria limit <player>"));
                             return false;
                         }
-                        if (plugin.getPlayerDao().checkIfPlayerExist(args[1])) {
+                        if (!plugin.getPlayerDao().isPlayerInDB(args[1])) {
                             player.sendMessage(Color.color(plugin.getConfigManager().getPrefix() +
                                     ": W bazie danych nie ma podanego gracza."));
                             return false;
@@ -247,7 +245,7 @@ public class ChatListener implements CommandExecutor {
             return false;
         }
         createIsland(player.getName(), null, null);
-        if (plugin.getPlayerDao().checkIfPlayerExist(player.getName())) {
+        if (!plugin.getPlayerDao().isPlayerInDB(player.getName())) {
             plugin.getPlayerDao().insertPlayer(player.getName());
         }
         return true;

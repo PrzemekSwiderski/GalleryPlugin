@@ -4,7 +4,9 @@ main: gallery.Gallery
 api-version: 1.18
 depend: [ IslandWorld, LuckPerms ]
 authors: [ CrySis ]
+website: brodaci.net
 
 commands:
   galeria:
   wyspa:
+

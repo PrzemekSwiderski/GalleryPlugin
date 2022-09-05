@@ -1,116 +1,148 @@
 package gallery.managers;
 
 import gallery.Gallery;
+import lombok.Getter;
+import lombok.SneakyThrows;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.logging.Logger;
 
+@Getter
 public class MySQLManager {
+    private final String PLAYERS = "players";
 
+    private final Gallery plugin;
     private final Logger log;
-    private Connection connection;
+    private DatabaseConnector connector;
 
-    private final String host;
-    private final String user;
-    private final String password;
-    private final String database;
-    private final int port;
-
-    public MySQLManager(String host, int port, String database, String user, String password) {
-        this.database = database;
-        this.host = host;
-        this.port = port;
-        this.user = user;
-        this.password = password;
-        this.log = Gallery.getInstance().getLogger();
+    public MySQLManager() {
+        plugin = Gallery.getInstance();
+        log = plugin.getLogger();
+        initiateDB();
     }
 
-    private void initialize() {
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-            connection = DriverManager.getConnection("jdbc:mysql://"
-                            + host + ":"
-                            + port + "/"
-                            + database
-                            + "?autoReconnect=true&useUnicode=true&characterEncoding=utf-8",
-                    user, password);
-        } catch (ClassNotFoundException e) {
-            log.severe("ClassNotFoundException! " + e.getMessage());
-        } catch (SQLException e) {
-            log.severe("SQLException! " + e.getMessage());
-        }
-    }
-
-    public Connection getConnection() {
-        try {
-            if (connection == null || connection.isClosed()) {
-                initialize();
+    @SneakyThrows
+    private void initiateDB() {
+        connector = new DatabaseConnector();
+        if (connector.checkConnection()) {
+            if (!existsTable(PLAYERS)) {
+                execute("CREATE TABLE IF NOT EXISTS `players` (" +
+                        "`name` varchar(32), " +
+                        "PRIMARY KEY (`name`), " +
+                        "frames INT);");
             }
-        } catch (SQLException e) {
-            log.severe("Failed to get connection! " + e.getMessage());
+        } else {
+            log.warning("Cannot initiate database - connection error");
         }
-        return connection;
-    }
-
-    public Boolean checkConnection() {
-        return getConnection() != null;
-    }
-
-
-
-    public ResultSet select(String query) {
-        try {
-            Statement statement = getConnection().createStatement();
-            return statement.executeQuery(query);
-        } catch (SQLException e) {
-            log.severe("Error at SQL Query: " + e.getMessage());
-            log.severe("Query: " + query);
-            return null;
-        }
-    }
-
-    public void insert(String query) {
-        try (Statement statement = getConnection().createStatement()) {
-            statement.executeUpdate(query, Statement.RETURN_GENERATED_KEYS);
-        } catch (SQLException e) {
-            if (!e.toString().contains("not return ResultSet")) {
-                log.severe("Error at SQL INSERT Query: " + e);
-            }
-        }
-    }
-
-    public boolean update(String query) {
-        try (Statement statement = getConnection().createStatement()) {
-            statement.executeUpdate(query);
-            return true;
-        } catch (SQLException e) {
-            if (!e.toString().contains("not return ResultSet")) {
-                log.severe("Error at SQL UPDATE Query: " + e);
-            }
-            return false;
-        }
-    }
-
-    public void execute(String query) {
-        try (Statement statement = getConnection().createStatement()) {
-            statement.execute(query);
-
-        } catch (SQLException e) {
-            log.severe("Error at SQL Query: " + e.getMessage());
-        }
+        connector.getConnection().close();
     }
 
     public Boolean existsTable(String table) {
-        try {
-            ResultSet tables = getConnection().getMetaData().getTables(database, null, table, new String[] {"TABLE"});
-            boolean exists = tables.next();
-            getConnection().close();
-            return exists;
+        String database = plugin.getConfigManager().getDatabase();
+        try (Connection connection = connector.getConnection();
+             ResultSet tables = connection
+                     .getMetaData()
+                     .getTables(database, null, table, new String[]{"TABLE"})) {
+            return tables.next();
         } catch (SQLException e) {
             log.severe("Failed to check if table " + table + " exists: " + e.getMessage());
             return false;
         }
     }
 
+    public void execute(String query) {
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            log.severe("Error at execute(): " + e.getMessage());
+        }
+    }
 
+    public int getLimit(String player) {
+        String query = "SELECT `frames` FROM " + PLAYERS + " WHERE `name` = ?";
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, player);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            resultSet.next();
+            return resultSet.getInt("frames");
+        } catch (SQLException e) {
+            log.severe("Error at getLimit(): " + e.getMessage());
+        }
+        return -1;
+    }
+
+    public boolean updatePlayerLimit(String player, int modify) {
+        String query = "UPDATE " + PLAYERS + " SET `frames` = `frames` + ? WHERE `name` = ?";
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setInt(1, modify);
+            preparedStatement.setString(2, player);
+            preparedStatement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            log.severe("Error at updatePlayerLimit(): " + e.getMessage());
+        }
+
+        return false;
+    }
+
+    public boolean setPlayerLimit(String player, int modify) {
+        if (isPlayerInDB(player)) {
+            return setPlayerLimitIfPlayerIsInDB(player, modify);
+        } else {
+            return setPlayerLimitIfPlayerIsNotInDB(player, modify);
+        }
+    }
+
+    public boolean isPlayerInDB(String player) {
+        String query = "SELECT * from " + PLAYERS + " WHERE name = ?";
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, player);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return true;
+        }
+    }
+
+    private boolean setPlayerLimitIfPlayerIsInDB(String player, int modify) {
+        String query = "UPDATE " + PLAYERS + " SET `frames` = ? Where `name` = ?";
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setInt(1, modify);
+            preparedStatement.setString(2, player);
+            preparedStatement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            log.severe("Error at setPlayerLimitIfPlayerIsInDB(): " + e.getMessage());
+        }
+        return false;
+    }
+
+    private boolean setPlayerLimitIfPlayerIsNotInDB(String player, int modify) {
+        String query = "INSERT INTO " + PLAYERS + " (`name`, `frames`) VALUES(?, ?)";
+        try (Connection connection = connector.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, player);
+            preparedStatement.setInt(2, modify);
+            preparedStatement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            log.severe("Error at setPlayerLimitIfPlayerIsNotInDB(): " + e.getMessage());
+        }
+        return false;
+    }
+
+    public void insertPlayer(String player) {
+        setPlayerLimitIfPlayerIsNotInDB(player, 0);
+    }
 }
+
+

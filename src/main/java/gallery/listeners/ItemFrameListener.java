@@ -2,7 +2,6 @@ package gallery.listeners;
 
 import gallery.Gallery;
 import gallery.util.Color;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -46,7 +45,7 @@ public class ItemFrameListener implements Listener {
         for (Integer limit : limits) {
             if (plugin.getUtility().whichLimitPlayerHas(player, limits.size() - limits.indexOf(limit))) {
                 if (isLimitReach(player, limit)) {
-                    if (plugin.getPlayerDao().updatePlayerLimit(player, "+ 1")) {
+                    if (plugin.getPlayerDao().updatePlayerLimit(player.getName(), 1)) {
                         player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
                                 + ": Poprawnie postawiono ramkę."));
                     } else {
@@ -75,7 +74,7 @@ public class ItemFrameListener implements Listener {
             Player player = (Player) event.getRemover();
             if (isOwner(player) && player != null) {
                 if (player.isSneaking()) {
-                    if (plugin.getPlayerDao().updatePlayerLimit(player, "- 1")) {
+                    if (plugin.getPlayerDao().updatePlayerLimit(player.getName(), -1)) {
                         player.sendMessage(Color.color(plugin.getConfigManager().getPrefix()
                                 + ": Poprawnie usunięto ramkę."));
                         if (lowerThanZero(player)) {

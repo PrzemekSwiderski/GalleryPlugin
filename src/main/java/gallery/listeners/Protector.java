@@ -9,6 +9,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDropItemEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
+import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 
@@ -85,5 +86,11 @@ public class Protector implements Listener {
         event.setCancelled(true);
     }
 
-
+    @EventHandler
+    public void preventItemFrameBreakByBoat(HangingBreakEvent event) {
+        if (!event.getCause().equals(HangingBreakEvent.RemoveCause.PHYSICS)) {
+            return;
+        }
+        event.setCancelled(true);
+    }
 }
