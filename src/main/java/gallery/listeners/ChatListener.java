@@ -170,7 +170,7 @@ public class ChatListener implements CommandExecutor {
                         return teleportToGallery(args[0], player);
                 }
             case "wyspa":
-                if (!player.hasPermission(plugin.getConfigManager().getPermission() + ".admin")) {
+                if (!player.hasPermission(plugin.getConfigManager().getPermission() + ".technik")) {
                     getCommandGalleryHelpForPlayer(player);
                     return false;
                 }
